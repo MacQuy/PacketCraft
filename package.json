@@ -1,0 +1,24 @@
+{
+  "name": "packetcraft",
+  "version": "1.0.0",
+  "description": "",
+  "main": "main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/MacQuy/PacketCraft.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/MacQuy/PacketCraft/issues"
+  },
+  "homepage": "https://github.com/MacQuy/PacketCraft#readme",
+  "devDependencies": {
+    "electron": "^38.1.2"
+  }
+}
