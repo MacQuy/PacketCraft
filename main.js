@@ -9,8 +9,7 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false
     },
-    autoHideMenuBar: true,
-    resizable: false
+    autoHideMenuBar: true
   });
 
   win.loadFile(path.join(__dirname, "frontend/index.html"));
