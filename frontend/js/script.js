@@ -1,10 +1,11 @@
 import * as Helper from "./helperFunction.js";
+import * as Validation from "./validation.js";
 
 const packetStore = { sent: [], received: [] }; // in-memory for PCAP export
 
 // ---------- Tab handling ----------
-const tabs = Helper.qsa(".nav-link[data-target]");
-const panes = Helper.qsa(".tab-pane");
+const tabs = [...document.querySelectorAll(".nav-link[data-target]")];
+const panes = [...document.querySelectorAll(".tab-pane")];
 
 function activateTab(key) {
     tabs.forEach((t) => t.classList.remove("active"));
@@ -12,7 +13,7 @@ function activateTab(key) {
     const tab = tabs.find((t) => t.dataset.tab === key) || tabs[0];
     tab.classList.add("active");
     const target = tab.dataset.target;
-    const pane = Helper.qs(target);
+    const pane = document.querySelector(target);
     if (pane) pane.classList.remove("d-none");
     localStorage.setItem("nettools.activeTab", key);
 }
@@ -20,16 +21,16 @@ function activateTab(key) {
 tabs.forEach(t => t.addEventListener("click", (e) => {
     e.preventDefault();
     activateTab(t.dataset.tab);
-    const sb = Helper.qs(".sidebar");
+    const sb = document.querySelector(".sidebar");
     if (sb.classList.contains("show")) sb.classList.remove("show");
     })
 );
 
 activateTab(localStorage.getItem("nettools.activeTab") || "dashboard");
-Helper.qs("#menuToggle").addEventListener("click", () => Helper.qs(".sidebar").classList.toggle("show"));
+document.querySelector("#menuToggle").addEventListener("click", () => document.querySelector(".sidebar").classList.toggle("show"));
 
-Helper.qs('[data-go="build"]').addEventListener("click", () => activateTab("build"));
-Helper.qs('[data-go="sniffer"]').addEventListener("click", () => activateTab("sniffer"));
+document.querySelector('[data-go="build"]').addEventListener("click", () => activateTab("build"));
+document.querySelector('[data-go="sniffer"]').addEventListener("click", () => activateTab("sniffer"));
 
 // ---------- Build Packet ----------
 function renderLayered(obj) {
@@ -38,7 +39,7 @@ function renderLayered(obj) {
     s += `IP (v${obj.ip.ver}):\n  Src: ${obj.ip.src}\n  Dst: ${obj.ip.dst}\n  TTL: ${obj.ip.ttl}\n\n`;
     s += `Transport (${obj.transport.proto}):\n  SrcPort: ${obj.transport.sport}\n  DstPort: ${obj.transport.dport}\n  Flags: ${obj.transport.flags}\n\n`;
     s += `Payload (${obj.payload.length} bytes):\n  ${obj.payload}\n`;
-    Helper.qs("#layerPreview").textContent = s;
+    document.querySelector("#layerPreview").textContent = s;
 }
   
 function renderHex(obj) {
@@ -50,18 +51,18 @@ function renderHex(obj) {
     parts.push(`PROTO:${obj.transport.proto}`);
     parts.push(`PAYLOAD:${obj.payload}`);
     const joined = parts.join("|");
-    Helper.qs("#hexPreview").textContent = Helper.toHex(joined);
+    document.querySelector("#hexPreview").textContent = Helper.toHex(joined);
     return Helper.toHex(joined);
 }
   
-Helper.qs("#btnBuild").addEventListener("click", () => {
+document.querySelector("#btnBuild").addEventListener("click", () => {
     const obj = gatherForm();
     renderLayered(obj);
     renderHex(obj);
 });
 
 function gatherForm() {
-    const f = new FormData(Helper.qs("#packetForm"));
+    const f = new FormData(document.querySelector("#packetForm"));
     const out = {
         ethernet: {
             src: f.get("eth_src"),
@@ -85,6 +86,39 @@ function gatherForm() {
     return out;
 }
 
+document.querySelectorAll('input[name^="eth_"]').forEach(input => {
+    input.addEventListener('input', e => {
+        const { name, value } = e.target;
+        let valid = true;
+    
+        if (name === 'eth_src' || name === 'eth_dst')
+            valid = Validation.isValidMAC(value);
+        else if (name === 'eth_type')
+            valid = Validation.isValidType(value);
+    
+        e.target.classList.toggle('is-invalid', !valid);
+        e.target.classList.toggle('is-valid', valid);
+    });
+});
+
+document.querySelectorAll('input[name^="ip_"]').forEach(input => {
+    input.addEventListener('input', e => {
+        const version = document.querySelector('select[name="ip_ver"]').value;
+        const { name, value } = e.target;
+        let valid = true;
+
+        if (name === 'ip_src' || name === 'ip_dst') {
+            valid = Validation.isValidIP(value, version);
+        } 
+        else if (name === 'ip_ttl') {
+            valid = Validation.isValidTTL(value);
+        }
+
+        e.target.classList.toggle('is-invalid', !valid);
+        e.target.classList.toggle('is-valid', valid);
+    });
+});
+
 // ---------- Sniffer handling ----------
 function addSniffRow(pkt) {
     const tr = document.createElement("tr");
@@ -95,14 +129,14 @@ function addSniffRow(pkt) {
     const payloadSummary = (pkt.obj.payload || "").slice(0, 40);
     tr.innerHTML = `<td>${t}</td><td>${src}</td><td>${dst}</td><td>${proto}</td><td>${payloadSummary}</td>`;
     tr.addEventListener("click", () => {
-        Helper.qs("#modalDetail").textContent =
+        document.querySelector("#modalDetail").textContent =
         `Time: ${new Date(pkt.ts).toISOString()}\n\n` +
         JSON.stringify(pkt.obj, null, 2) +
         "\n\nHEX:\n" +
         pkt.hex;
-        new bootstrap.Modal(Helper.qs("#detailModal")).show();
+        new bootstrap.Modal(document.querySelector("#detailModal")).show();
     });
-    Helper.qs("#sniffTable").prepend(tr);
+    document.querySelector("#sniffTable").prepend(tr);
 }
 
 //Test
@@ -126,8 +160,8 @@ const pkt = {
 };
 addSniffRow(pkt);
   
-Helper.qs("#clearSniff").addEventListener("click", () => {
-    Helper.qs("#sniffTable").innerHTML = "";
+document.querySelector("#clearSniff").addEventListener("click", () => {
+    document.querySelector("#sniffTable").innerHTML = "";
     packetStore.sent = [];
     packetStore.received = [];
 });
@@ -161,7 +195,7 @@ const builtinTemplates = [
 ];
   
 function renderTemplates(list) {
-    const ul = Helper.qs("#templateList");
+    const ul = document.querySelector("#templateList");
     ul.innerHTML = "";
     list.forEach((t, idx) => {
         const li = document.createElement("li");
@@ -183,4 +217,4 @@ function renderTemplates(list) {
     });
 }
 
-Helper.qs("#loadBuiltin").addEventListener("click", () => renderTemplates(builtinTemplates));
+document.querySelector("#loadBuiltin").addEventListener("click", () => renderTemplates(builtinTemplates));
