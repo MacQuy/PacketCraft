@@ -196,12 +196,6 @@
                                         </select>
                                         <button type="button" id="btnBuild" class="btn btn-primary">Build Packet</button>
                                         <button type="button" id="btnSend" class="btn btn-success">Send Packet</button>
-
-                                        <div class="ms-auto">
-                                            <button id="btnSaveJson" class="btn btn-outline-secondary btn-sm">Save JSON</button>
-                                            <input type="file" id="loadJsonFile" accept="application/json" style="display:none"/>
-                                            <button id="btnLoadJson" class="btn btn-outline-secondary btn-sm">Load JSON</button>
-                                        </div>
                                     </div>
                                 </form>
                             </div>
@@ -239,7 +233,6 @@
                         <h4>Packet Templates</h4>
                         <div class="d-flex gap-2 mb-3">
                             <button id="loadBuiltin" class="btn btn-sm btn-primary">Load Built-in</button>
-                            <button id="saveTemplate" class="btn btn-sm btn-outline-primary">Save Current as Template</button>
                             <button id="importTemplates" class="btn btn-sm btn-outline-secondary">Import JSON</button>
                             <input type="file" id="importTemplatesFile" accept="application/json" style="display:none">
                         </div>
@@ -322,12 +315,6 @@
                                         </button>
                                     </div>
                                 </div>
-                        
-                                <div class="card p-3 mb-3">
-                                    <h6>Reset</h6>
-                                    <button id="resetSettings" class="btn btn-sm btn-outline-danger">Reset to Default</button>
-                                </div>
-                        
                             </div>
                         </div>
                     </section>

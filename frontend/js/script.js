@@ -1,5 +1,6 @@
 import * as Helper from "./helperFunction.js";
 import * as Validation from "./validation.js";
+import * as Template from "./templates.js";
 
 const packetStore = { sent: [], received: [] }; // in-memory for PCAP export
 
@@ -171,6 +172,118 @@ document.querySelectorAll('input[name^="ip_"]').forEach(input => {
     });
 });
 
+// ---------- Template handling ----------
+function renderTemplates(list) {
+    const ul = document.querySelector("#templateList");
+    ul.innerHTML = "";
+    list.forEach((t, idx) => {
+        const li = document.createElement("li");
+        li.className =
+        "list-group-item d-flex justify-content-between align-items-center";
+        li.innerHTML = `
+        <div>
+            <strong>${t.name}</strong>
+            <div class="small text-muted">${t.transport ? t.transport.proto.toUpperCase() : "ARP"}</div>
+        </div>
+        <div class="btn-group btn-group-sm">
+            <button class="btn btn-sm btn-outline-primary" data-load="${idx}">Load</button>
+            <button class="btn btn-sm btn-outline-secondary" data-export="${idx}">Export</button>
+        </div>
+        `;
+        ul.appendChild(li);
+        li.querySelector("[data-load]").addEventListener("click", () => applyTemplate(t));
+        li.querySelector("[data-export]").addEventListener("click", () => downloadJSON(t, t.name.replace(/\s+/g, "_") + ".json"));
+    });
+}
+
+document.querySelector("#loadBuiltin").addEventListener("click", () => renderTemplates(Template.builtinTemplates));
+
+function applyTemplate(t) {
+    const form = document.querySelector("#packetForm");
+    form.reset();
+
+    const { eth, transport, payload } = t;
+    const type = eth.eth_type;
+
+    form.eth_src.value = eth.eth_src;
+    form.eth_dst.value = eth.eth_dst;
+    form.eth_type.value = eth.eth_type;
+
+    const typeElement = document.querySelector("#networkProtocol");
+    typeElement.dispatchEvent(new Event("change"));
+    
+    if (type === "0x0800") {
+        const {ip} = t;
+        form.ipv4_src.value = ip.ipv4_src;
+        form.ipv4_dst.value = ip.ipv4_dst;
+        form.ip_ttl.value = ip.ip_ttl;
+        form.ip_id.value = ip.ip_id;
+        form.flags.value = ip.flags;
+    } else if (type === "0x86DD") {
+        const {ipv6} = t;
+        form.ipv6_src.value = ipv6.ipv6_src;
+        form.ipv6_dst.value = ipv6.ipv6_dst;
+    } else if (type === "0x0806") {
+        const {arp} = t;
+        form.ip_arp_src.value = arp.ip_arp_src;
+        form.ip_arp_dst.value = arp.ip_arp_dst;
+    }
+
+    if (type === "0x0806") {
+        form.payload.value = payload;
+        document.querySelector("#tabBuild").classList.remove("d-none");
+        document.querySelector("#tabTemplates").classList.add("d-none");
+        return;
+    }
+
+    const proto = transport.proto;
+    form.proto.value = proto;
+
+    const protoElement = document.querySelector("#protoSelect");
+    protoElement.dispatchEvent(new Event("change"));
+    
+    if (proto === "tcp") {
+        form.sport.value = transport.sport;
+        form.dport.value = transport.dport;
+        form.seq.value = transport.seq;
+        form.ack.value = transport.ack;
+        form.tcp_flags.value = transport.tcp_flags;
+    } else if (proto === "udp") {
+        form.sport.value = transport.sport;
+        form.dport.value = transport.dport;
+    } else if (proto === "icmp") {
+        form.type.value = transport.type;
+        form.code.value = transport.code;
+    }
+
+    form.payload.value = payload;
+    document.querySelector("#tabBuild").classList.remove("d-none");
+    document.querySelector("#tabTemplates").classList.add("d-none");
+}
+
+// ---------- Setting handling ----------
+document.addEventListener("DOMContentLoaded", async () => {
+    const downloadsPathElement = document.querySelector("#defaultFolder");
+    const chooseBtn = document.querySelector("#chooseFolder");
+  
+    let downloadsPath = localStorage.getItem("nettools.downloadsPath");
+  
+    if (!downloadsPath) {
+        downloadsPath = await window.electronAPI.getDownloadsPath();
+        localStorage.setItem("nettools.downloadsPath", downloadsPath);
+    }
+  
+    downloadsPathElement.value = downloadsPath;
+  
+    chooseBtn.addEventListener("click", async () => {
+        const folder = await window.electronAPI.chooseFolder();
+        if (folder) {
+            downloadsPathElement.value = folder;
+            localStorage.setItem("nettools.downloadsPath", folder);
+        }
+    });
+});
+
 // ---------- Sniffer handling ----------
 function addSniffRow(pkt) {
     const tr = document.createElement("tr");
@@ -183,9 +296,7 @@ function addSniffRow(pkt) {
     tr.addEventListener("click", () => {
         document.querySelector("#modalDetail").textContent =
         `Time: ${new Date(pkt.ts).toISOString()}\n\n` +
-        JSON.stringify(pkt.obj, null, 2) +
-        "\n\nHEX:\n" +
-        pkt.hex;
+        JSON.stringify(pkt.obj, null, 2);
         new bootstrap.Modal(document.querySelector("#detailModal")).show();
     });
     document.querySelector("#sniffTable").prepend(tr);
@@ -217,56 +328,3 @@ document.querySelector("#clearSniff").addEventListener("click", () => {
     packetStore.sent = [];
     packetStore.received = [];
 });
-
-// ---------- Template handling ----------
-const builtinTemplates = [
-    {
-      name: "Ping (ICMP)",
-      proto: "ICMPv4",
-      eth: {},
-      ip: { ver: 4, src: "192.168.0.100", dst: "192.168.0.1", ttl: 64 },
-      transport: { sport: "", dport: "", flags: "type=8 code=0" },
-      payload: "ping",
-    },
-    {
-      name: "TCP SYN",
-      proto: "TCP",
-      eth: {},
-      ip: { ver: 4, src: "192.168.0.100", dst: "192.168.0.1", ttl: 64 },
-      transport: { sport: "40000", dport: "80", flags: "SYN" },
-      payload: "",
-    },
-    {
-      name: "HTTP GET",
-      proto: "TCP",
-      eth: {},
-      ip: { ver: 4, src: "192.168.0.100", dst: "93.184.216.34", ttl: 64 },
-      transport: { sport: "40001", dport: "80", flags: "SYN" },
-      payload: "GET / HTTP/1.1\r\nHost: example.com\r\n\r\n",
-    },
-];
-  
-function renderTemplates(list) {
-    const ul = document.querySelector("#templateList");
-    ul.innerHTML = "";
-    list.forEach((t, idx) => {
-        const li = document.createElement("li");
-        li.className =
-        "list-group-item d-flex justify-content-between align-items-center";
-        li.innerHTML = `
-        <div>
-            <strong>${t.name}</strong>
-            <div class="small text-muted">${t.proto}</div>
-        </div>
-        <div class="btn-group btn-group-sm">
-            <button class="btn btn-sm btn-outline-primary" data-load="${idx}">Load</button>
-            <button class="btn btn-sm btn-outline-secondary" data-export="${idx}">Export</button>
-        </div>
-        `;
-        ul.appendChild(li);
-        li.querySelector("[data-load]").addEventListener("click", () => applyTemplate(t));
-        li.querySelector("[data-export]").addEventListener("click", () => downloadJSON(t, t.name.replace(/\s+/g, "_") + ".json"));
-    });
-}
-
-document.querySelector("#loadBuiltin").addEventListener("click", () => renderTemplates(builtinTemplates));
