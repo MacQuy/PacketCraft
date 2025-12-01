@@ -16,7 +16,6 @@ app = Flask(__name__)
 # Rất quan trọng: Cho phép frontend Electron gọi API từ các cổng khác nhau
 CORS(app)
 
-<<<<<<< HEAD
 # --- API: Lấy danh sách Network Interfaces ---
 @app.route('/api/interfaces', methods=['GET'])
 def get_interfaces_api():
