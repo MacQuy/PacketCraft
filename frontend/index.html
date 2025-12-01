@@ -1,85 +1,313 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
     <head>
-        <meta charset="UTF-8">
-        <title>Sort Numbers</title>
-        <link rel="stylesheet" href="styles.css"/>
-        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+        <meta charset="utf-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>PacketCraft</title>
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+        <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" rel="stylesheet">
+        <link href="styles.css" rel="stylesheet">
     </head>
     <body>
-        <div id="sort">
-            <h1>Sort Numbers</h1>
-            <div class="line"></div>
-            <div class="card" id="sort-container">
-                <div class="sort-item">
-                    <input id="user-input" class="card" placeholder="Input here..." required/>
+        <div class="app-shell">
+            <nav class="sidebar d-flex flex-column">
+                <div class="px-3 mb-3 d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-network-wired fa-lg text-white"></i>
+                    <div class="brand text-white fw-bold">PacketCraft</div>
                 </div>
-                <div class="sort-item">
-                    <button id="sort-btn" class="card">Sort</button>
-                    <button id="clear-btn" class="card">Clear</button>
+
+                <ul class="nav nav-pills flex-column px-2" id="sideTabs" role="tablist">
+                    <li class="nav-item mb-1"><a class="nav-link" href="#" data-target="#tabDashboard" data-tab="dashboard"><i class="fa-solid fa-gauge-high me-2"></i> Dashboard</a></li>
+                    <li class="nav-item mb-1"><a class="nav-link" href="#" data-target="#tabBuild" data-tab="build"><i class="fa-solid fa-wrench me-2"></i> Build Packet</a></li>
+                    <li class="nav-item mb-1"><a class="nav-link" href="#" data-target="#tabSniff" data-tab="sniffer"><i class="fa-solid fa-magnifying-glass me-2"></i> Sniffer / Logs</a></li>
+                    <li class="nav-item mb-1"><a class="nav-link" href="#" data-target="#tabTemplates" data-tab="templates"><i class="fa-solid fa-file-lines me-2"></i> Templates</a></li>
+                    <li class="nav-item mb-1"><a class="nav-link" href="#" data-target="#tabTools" data-tab="tools"><i class="fa-solid fa-toolbox me-2"></i> Tools</a></li>
+                    <li class="nav-item mb-1"><a class="nav-link" href="#" data-target="#tabSettings" data-tab="settings"><i class="fa-solid fa-gear me-2"></i> Settings</a></li>
+                </ul>
+            </nav>
+
+            <div class="main">
+                <div class="main-head d-flex align-items-center justify-content-between">
+                    <div class="d-flex align-items-center gap-2">
+                        <button id="menuToggle" class="btn btn-light btn-sm d-md-none me-2"><i class="fa-solid fa-bars"></i></button>
+                    </div>
                 </div>
-                <div class="sort-item">
-                    <div id="results-div"></div>
+
+                <div class="main-body">
+                    <!-- Dashboard -->
+                    <section id="tabDashboard" class="tab-pane d-none">
+                        <h4>Dashboard</h4>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <div class="card p-3">
+                                    <h6>Quick Actions</h6>
+                                    <div class="d-flex gap-2 mt-2">
+                                        <button class="btn btn-primary" data-go="build">Open Build Packet</button>
+                                        <button class="btn btn-outline-primary" data-go="sniffer">Open Sniffer</button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card p-3">
+                                    <h6>Live Stats</h6>
+                                    <div id="liveStats">Packets sent: <strong>0</strong> • Received: <strong>0</strong> • Loss: <strong>0%</strong></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Build Packet -->
+                    <section id="tabBuild" class="tab-pane d-none">
+                        <h4>Build Packet</h4>
+                        <div class="row">
+                            <div class="col-lg-7">
+                                <form id="packetForm">
+                                    <div class="card p-3 mb-3">
+                                        <h6>Ethernet</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-6"><label class="form-label">Src MAC</label><input class="form-control form-control-sm" name="eth_src"></div>
+                                            <div class="col-md-6"><label class="form-label">Dst MAC</label><input class="form-control form-control-sm" name="eth_dst"></div>
+                                            <div class="col-md-6 mt-2"><label class="form-label">Type</label><input class="form-control form-control-sm" name="eth_type"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card p-3 mb-3">
+                                        <h6>IP</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-3"><label class="form-label">Version</label><select class="form-select form-select-sm" name="ip_ver"><option value="4">IPv4</option><option value="6">IPv6</option></select></div>
+                                            <div class="col-md-4"><label class="form-label">Src IP</label><input class="form-control form-control-sm" name="ip_src"></div>
+                                            <div class="col-md-4"><label class="form-label">Dst IP</label><input class="form-control form-control-sm" name="ip_dst"></div>
+                                            <div class="col-md-2"><label class="form-label">TTL</label><input class="form-control form-control-sm" name="ip_ttl"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card p-3 mb-3">
+                                        <h6>Transport</h6>
+                                        <div class="row g-2">
+                                            <div class="col-md-4"><label class="form-label">Protocol</label><select class="form-select form-select-sm" name="proto" id="protoSelect"><option>TCP</option><option>UDP</option><option>ICMPv4</option><option>ICMPv6</option></select></div>
+                                            <div class="col-md-4"><label class="form-label">Src Port</label><input class="form-control form-control-sm" name="sport"></div>
+                                            <div class="col-md-4"><label class="form-label">Dst Port</label><input class="form-control form-control-sm" name="dport"></div>
+                                            <div class="col-md-6 mt-2"><label class="form-label">Flags / Type / Code</label><input class="form-control form-control-sm" name="flags"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card p-3 mb-3">
+                                        <h6>Payload</h6>
+                                        <textarea class="form-control" name="payload" rows="4"></textarea>
+                                    </div>
+
+                                    <div class="d-flex gap-2 mb-3">
+                                        <select id="ifaceSelect" class="form-select form-select-sm" style="max-width:220px"><option>eth0</option><option>wlan0</option><option>lo</option></select>
+                                        <button type="button" id="btnBuild" class="btn btn-primary">Build Packet</button>
+                                        <button type="button" id="btnSend" class="btn btn-success">Send Packet</button>
+
+                                        <div class="ms-auto">
+                                            <button id="btnSaveJson" class="btn btn-outline-secondary btn-sm">Save JSON</button>
+                                            <input type="file" id="loadJsonFile" accept="application/json" style="display:none"/>
+                                            <button id="btnLoadJson" class="btn btn-outline-secondary btn-sm">Load JSON</button>
+                                        </div>
+                                    </div>
+
+                                    <!-- Batch send -->
+                                    <div class="card p-3">
+                                        <h6>Batch Send / Stress Test</h6>
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-md-3"><label class="form-label">Count</label><input id="batchCount" type="number" class="form-control form-control-sm" value="10"></div>
+                                            <div class="col-md-3"><label class="form-label">Rate (pkt/s)</label><input id="batchRate" type="number" class="form-control form-control-sm" value="5"></div>
+                                            <div class="col-md-6 d-flex gap-2"><button id="startBatch" class="btn btn-warning">Start</button><button id="stopBatch" class="btn btn-outline-warning" disabled>Stop</button></div>
+                                        </div>
+                                        <div class="mt-2"><small>Stats: Sent: <span id="statSent">0</span> • Received: <span id="statRecv">0</span> • Loss: <span id="statLoss">0</span>%</small></div>
+                                    </div>
+                                </form>
+                            </div>
+
+                            <div class="col-lg-5">
+                                <div class="card p-3 mb-3">
+                                    <h6>Preview — Layered</h6>
+                                    <pre id="layerPreview" style="font-family:monospace;min-height:150px;background:#fff;padding:1rem;overflow:auto"></pre>
+                                </div>
+
+                                <div class="card p-3">
+                                    <h6>Hex Dump</h6>
+                                    <pre id="hexPreview" class="hexdump" style="min-height:210px">(Chưa có gói)</pre>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Sniffer / Logs -->
+                    <section id="tabSniff" class="tab-pane d-none">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
+                            <h4>Sniffer / Logs</h4>
+                            <div>
+                                <button id="btnStartSniff" class="btn btn-sm btn-success">Start Capture</button>
+                                <button id="btnStopSniff" class="btn btn-sm btn-danger" disabled>Stop Capture</button>
+                                <button id="exportPcap" class="btn btn-sm btn-outline-secondary">Export PCAP</button>
+                                <button id="clearSniff" class="btn btn-sm btn-outline-danger">Clear</button>
+                            </div>
+                        </div>
+
+                        <!-- Filter bar -->
+                        <div class="card mb-2">
+                            <div class="card-body p-2">
+                                <div class="input-group input-group-sm">
+                                    <span class="input-group-text">Filter:</span>
+                                    <input type="text" id="packetFilter" class="form-control" 
+                                           placeholder="tcp port 80, icmp, host 8.8.8.8" 
+                                           value="">
+                                    <button id="btnApplyFilter" class="btn btn-outline-primary">Apply</button>
+                                    <button id="btnClearFilter" class="btn btn-outline-secondary">Clear</button>
+                                </div>
+                                <small class="text-muted">BPF filter syntax (e.g., tcp port 80, icmp, host 8.8.8.8)</small>
+                            </div>
+                        </div>
+
+                        <!-- Statistics -->
+                        <div class="card mb-2">
+                            <div class="card-body p-2">
+                                <div class="row text-center">
+                                    <div class="col">
+                                        <strong>Total:</strong> <span id="statTotal">0</span>
+                                    </div>
+                                    <div class="col">
+                                        <strong>Sent:</strong> <span id="statSent">0</span>
+                                    </div>
+                                    <div class="col">
+                                        <strong>Received:</strong> <span id="statReceived">0</span>
+                                    </div>
+                                    <div class="col">
+                                        <strong>Sniffed:</strong> <span id="statSniffed">0</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Packet List -->
+                        <div class="card mb-3">
+                            <div class="card-body p-0" style="overflow:auto; max-height: 500px;">
+                                <table class="table table-sm table-hover mb-0" style="font-size: 0.85rem; font-family: monospace;">
+                                    <thead class="table-light sticky-top">
+                                        <tr>
+                                            <th style="width: 50px;">No.</th>
+                                            <th style="width: 120px;">Time</th>
+                                            <th style="width: 150px;">Source</th>
+                                            <th style="width: 150px;">Destination</th>
+                                            <th style="width: 100px;">Protocol</th>
+                                            <th style="width: 80px;">Length</th>
+                                            <th>Info</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="sniffTable"></tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- Packet Details -->
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0">Packet Details</h6>
+                            </div>
+                            <div class="card-body p-2" style="max-height: 300px; overflow: auto;">
+                                <pre id="packetDetails" style="font-family: monospace; font-size: 0.85rem; margin: 0;">Click on a packet to view details...</pre>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Templates -->
+                    <section id="tabTemplates" class="tab-pane d-none">
+                        <h4>Packet Templates</h4>
+                        <div class="d-flex gap-2 mb-3">
+                            <button id="loadBuiltin" class="btn btn-sm btn-primary">Load Built-in</button>
+                            <button id="saveTemplate" class="btn btn-sm btn-outline-primary">Save Current as Template</button>
+                            <button id="importTemplates" class="btn btn-sm btn-outline-secondary">Import JSON</button>
+                            <input type="file" id="importTemplatesFile" accept="application/json" style="display:none">
+                        </div>
+                        <div class="card">
+                            <div class="card-body p-2" style="max-height:300px;overflow:auto">
+                                <ul id="templateList" class="list-group list-group-flush"></ul>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Tools -->
+                    <section id="tabTools" class="tab-pane d-none">
+                        <h4>Tools</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card p-3 mb-3">
+                                    <h6>Traceroute (demo)</h6>
+                                    <div class="input-group mb-2"><input id="trHost" class="form-control form-control-sm" placeholder="example.com"><button id="startTrace" class="btn btn-sm btn-primary">Start</button></div>
+                                    <pre id="traceOut" style="min-height:180px;overflow:auto;background:#fff;padding:0.5rem"></pre>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card p-3 mb-3">
+                                    <h6>Port Scan (demo)</h6>
+                                    <div class="input-group mb-2"><input id="scanHost" class="form-control form-control-sm" placeholder="192.168.0.1"><input id="scanPorts" class="form-control form-control-sm" placeholder="1-1024" style="max-width:140px"><button id="startScan" class="btn btn-sm btn-primary">Scan</button></div>
+                                    <div style="max-height:220px;overflow:auto"><table class="table table-sm mt-2"><thead><tr><th>Port</th><th>State</th></tr></thead><tbody id="scanResult"></tbody></table></div>
+                                </div>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- Settings -->
+                    <section id="tabSettings" class="tab-pane d-none">
+                        <h4>Settings</h4>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="card p-3 mb-3">
+                                    <h6>Default Save Folder</h6>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <input type="text" id="defaultFolder" class="form-control form-control-sm" placeholder="Choose default folder..." readonly>
+                                        <button id="chooseFolder" class="btn btn-sm btn-outline-secondary">
+                                        <i class="fa fa-folder-open"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                        
+                                <div class="card p-3 mb-3">
+                                    <h6>Export / Import</h6>
+                                    <div class="d-flex gap-2">
+                                        <button id="exportAll" class="btn btn-sm btn-outline-secondary">
+                                        Export to JSON
+                                        </button>
+                                        <button id="importAll" class="btn btn-sm btn-outline-secondary">
+                                        Import from JSON
+                                        </button>
+                                        <input id="importAllFile" type="file" accept="application/json" style="display:none">
+                                    </div>
+                                </div>
+                        
+                                <div class="card p-3 mb-3">
+                                    <h6>Reset</h6>
+                                    <button id="resetSettings" class="btn btn-sm btn-outline-danger">
+                                        Reset to Default
+                                    </button>
+                                </div>
+                        
+                            </div>
+                        </div>
+                    </section>
                 </div>
             </div>
         </div>
-        <div id="packet_builder">
-            <h1>Packet Builder</h1>
-            <div class="line"></div>
 
-            <div class="card" id="packet-container">
-
-                <label>Source IP</label>
-                <input id="src" class="card" placeholder="192.168.1.10"/>
-
-                <label>Destination IP</label>
-                <input id="dst" class="card" placeholder="192.168.1.20"/>
-
-                <label>Protocol</label>
-                <select id="protocol" class="card">
-                    <option>TCP</option>
-                    <option>UDP</option>
-                    <option>ICMP</option>
-                </select>
-
-                <label>Source Port</label>
-                <input id="sport" class="card" placeholder="1234"/>
-
-                <label>Destination Port</label>
-                <input id="dport" class="card" placeholder="80"/>
-
-                <label>Payload</label>
-                <input id="payload" class="card" placeholder="hello world"/>
-
-                <button id="build-btn" class="card" onclick="buildPacket()">Build Packet</button>
-                <button id="send-btn" class="card" onclick="sendPacket()">Send Packet</button>
-
-                <div id="packetResult" class="card" style="margin-top: 15px;"></div>
+        <!-- Detail modal for hex (reusable) -->
+        <div class="modal fade" id="detailModal" tabindex="-1">
+            <div class="modal-dialog" style="max-width: 95vw; width: 95vw;">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">Packet Detail</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body" style="max-height: 80vh; overflow-y: auto;">
+                        <div id="modalDetail"></div>
+                    </div>
+                </div>
             </div>
         </div>
-        <div id="contact">
-            <h1>Contact</h1>
-            <div class="line"></div>
-            <div class="description">Let's work together</div>
-            <div class="flex-container" id="contact-container">
-                <a class="contact-item card" id="profile-link" href="https://github.com/MacQuy" target="_blank"><i class="fab fa-github"></i> Github</a>
-                <a class="contact-item card" href="https://www.facebook.com/nhatduong.nguyen.18" target="_blank"><i class="fab fa-facebook"></i> Facebook</a>
-                <a class="contact-item card" href="mailto:macquydev77@gmail.com" target="_blank"><i class="fab fa-google"></i> Email</a>
-            </div>
-        </div>
-        <nav id="navbar" class="card">
-            <div id="right-container">
-                <div class="button-container">
-                    <span class="code"></span><a class="nav-link" href="#sort"> Sort </a><span class="code">/></span>
-                </div>
-                <div class="button-container">
-                    <span class="code"></span><a class="nav-link" href="#packet_builder"> Packet Builder </a><span class="code">/></span>
-                </div>
-                <div class="button-container">
-                    <span class="code"></span><a class="nav-link" href="#contact"> Contact </a><span class="code">/></span>
-                </div>
-            </div>
-        </nav>
-        <script src="script.js"></script>
+
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+        <script type="module" src="js/script.js"></script>
     </body>
 </html>
