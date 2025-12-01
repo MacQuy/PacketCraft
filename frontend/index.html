@@ -23,6 +23,40 @@
                 </div>
             </div>
         </div>
+        <div id="packet-builder">
+            <h1>Packet Builder</h1>
+            <div class="line"></div>
+
+            <div class="card" id="packet-container">
+
+                <label>Source IP</label>
+                <input id="src" class="card" placeholder="192.168.1.10"/>
+
+                <label>Destination IP</label>
+                <input id="dst" class="card" placeholder="192.168.1.20"/>
+
+                <label>Protocol</label>
+                <select id="protocol" class="card">
+                    <option>TCP</option>
+                    <option>UDP</option>
+                    <option>ICMP</option>
+                </select>
+
+                <label>Source Port</label>
+                <input id="sport" class="card" placeholder="1234"/>
+
+                <label>Destination Port</label>
+                <input id="dport" class="card" placeholder="80"/>
+
+                <label>Payload</label>
+                <input id="payload" class="card" placeholder="hello world"/>
+
+                <button id="build-btn" class="card" onclick="buildPacket()">Build Packet</button>
+                <button id="send-btn" class="card" onclick="sendPacket()">Send Packet</button>
+
+                <div id="packetResult" class="card" style="margin-top: 15px;"></div>
+            </div>
+        </div>
         <div id="contact">
             <h1>Contact</h1>
             <div class="line"></div>

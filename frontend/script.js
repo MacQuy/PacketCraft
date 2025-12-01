@@ -48,6 +48,46 @@ async function sort() {
     }
 }
 
+async function buildPacket() {
+    const data = {
+        src: document.getElementById("src").value,
+        dst: document.getElementById("dst").value,
+        protocol: document.getElementById("protocol").value,
+        sport: document.getElementById("sport").value,
+        dport: document.getElementById("dport").value,
+        payload: document.getElementById("payload").value
+    };
+
+    const res = await fetch("http://127.0.0.1:5000/packet/build", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    });
+
+    const json = await res.json();
+    document.getElementById("packetResult").innerText = JSON.stringify(json, null, 2);
+}
+
+async function sendPacket() {
+    const data = {
+        src: document.getElementById("src").value,
+        dst: document.getElementById("dst").value,
+        protocol: document.getElementById("protocol").value,
+        sport: document.getElementById("sport").value,
+        dport: document.getElementById("dport").value,
+        payload: document.getElementById("payload").value
+    };
+
+    const res = await fetch("http://127.0.0.1:5000/packet/send", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify(data)
+    });
+
+    const json = await res.json();
+    document.getElementById("packetResult").innerText = JSON.stringify(json, null, 2);
+}
+
 function clear() {
     userInput.value = "";
     resultsDiv.innerText = "";
