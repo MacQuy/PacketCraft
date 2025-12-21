@@ -341,7 +341,9 @@ function formatTraceroute(hops) {
     return `${header}\n${rows.join("\n")}`;
 }
 
-document.querySelector("#startTrace").addEventListener("click", () => {
+const startTraceButton = document.querySelector("#startTrace");
+
+startTraceButton.addEventListener("click", () => {
     const host = document.querySelector("#trHost").value.trim();
     if (!host) {
         traceOutput.textContent = "Please enter a host.";
@@ -349,6 +351,7 @@ document.querySelector("#startTrace").addEventListener("click", () => {
     }
 
     traceOutput.textContent = `Tracing route to ${host}...\n`;
+    startTraceButton.disabled = true;
 
     fetch("http://localhost:5000/traceroute", {
         method: "POST",
@@ -367,6 +370,57 @@ document.querySelector("#startTrace").addEventListener("click", () => {
     })
     .catch(err => {
         traceOutput.textContent = `Error: ${err.message || "Traceroute failed."}`;
+    })
+    .finally(() => {
+        startTraceButton.disabled = false;
+    });
+});
+
+// ---------- Tools: Port Scan ----------
+const scanResultBody = document.querySelector("#scanResult");
+const startScanButton = document.querySelector("#startScan");
+
+function renderScanResults(results, { hideClosed } = {}) {
+    scanResultBody.innerHTML = "";
+    results
+    .filter((entry) => !hideClosed || entry.state !== "closed")
+    .forEach((entry) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${entry.port}</td><td>${entry.state}</td>`;
+        scanResultBody.appendChild(tr);
+    });
+}
+
+startScanButton.addEventListener("click", () => {
+    const host = document.querySelector("#scanHost").value.trim();
+    const ports = document.querySelector("#scanPorts").value.trim();
+    scanResultBody.innerHTML = "";
+
+    if (!host || !ports) {
+        scanResultBody.innerHTML = `<tr><td colspan="2">Please enter host and ports.</td></tr>`;
+        return;
+    }
+    const hideClosed = ports.includes("-");
+    startScanButton.disabled = true;
+
+    fetch("http://localhost:5000/port-scan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host, ports })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status !== "success") {
+            scanResultBody.innerHTML = `<tr><td colspan="2">Error: ${data.message || "Scan failed."}</td></tr>`;
+            return;
+        }
+        renderScanResults(data.results, { hideClosed });
+    })
+    .catch(err => {
+        scanResultBody.innerHTML = `<tr><td colspan="2">Error: ${err.message || "Scan failed."}</td></tr>`;
+    })
+    .finally(() => {
+        startScanButton.disabled = false;
     });
 });
 

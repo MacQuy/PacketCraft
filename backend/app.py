@@ -324,6 +324,52 @@ def traceroute_host(host, max_hops=30, timeout=1, iface=None):
     return target_ip, hops
 
 
+def parse_ports(port_spec):
+    ports = set()
+    if not port_spec:
+        return []
+
+    for chunk in str(port_spec).split(","):
+        part = chunk.strip()
+        if not part:
+            continue
+        if "-" in part:
+            start_s, end_s = part.split("-", 1)
+            start = safe_int(start_s, None)
+            end = safe_int(end_s, None)
+            if start is None or end is None:
+                continue
+            if start > end:
+                start, end = end, start
+            for p in range(start, end + 1):
+                if 1 <= p <= 65535:
+                    ports.add(p)
+        else:
+            p = safe_int(part, None)
+            if p is not None and 1 <= p <= 65535:
+                ports.add(p)
+
+    return sorted(ports)
+
+
+def scan_port(target_ip, port, timeout=1, iface=None):
+    iface_to_use = iface or conf.iface
+    syn = IP(dst=target_ip) / TCP(dport=port, flags="S")
+    resp = sr1(syn, timeout=timeout, iface=iface_to_use, verbose=False)
+    if resp is None:
+        return "filtered"
+    if resp.haslayer(TCP):
+        flags = resp.getlayer(TCP).flags
+        if flags == 0x12:
+            sr1(IP(dst=target_ip) / TCP(dport=port, flags="R"), timeout=timeout, iface=iface_to_use, verbose=False)
+            return "open"
+        if flags == 0x14:
+            return "closed"
+    if resp.haslayer(ICMP):
+        return "filtered"
+    return "unknown"
+
+
 @app.route('/traceroute', methods=['POST'])
 def traceroute_api():
     try:
@@ -343,6 +389,40 @@ def traceroute_api():
             "target": host,
             "target_ip": target_ip,
             "hops": hops
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/port-scan', methods=['POST'])
+def port_scan_api():
+    try:
+        data = request.json or {}
+        host = clean_str(data.get("host"))
+        ports_spec = clean_str(data.get("ports"))
+        if not host:
+            return jsonify({"status": "error", "message": "host required"}), 400
+        if not ports_spec:
+            return jsonify({"status": "error", "message": "ports required"}), 400
+
+        target_ip = socket.gethostbyname(host)
+        ports = parse_ports(ports_spec)
+        if not ports:
+            return jsonify({"status": "error", "message": "no valid ports"}), 400
+
+        timeout = safe_int(data.get("timeout"), 1)
+        iface = clean_str(data.get("interface"))
+
+        results = []
+        for port in ports:
+            state = scan_port(target_ip, port, timeout=timeout, iface=iface)
+            results.append({"port": port, "state": state})
+
+        return jsonify({
+            "status": "success",
+            "target": host,
+            "target_ip": target_ip,
+            "results": results
         }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
