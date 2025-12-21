@@ -312,6 +312,7 @@ document.querySelector("#clearSniff").addEventListener("click", () => {
     document.querySelector("#sniffTable").innerHTML = "";
     packetStore.sent = [];
     packetStore.received = [];
+    fetch("http://localhost:5000/clear-logs", { method: "POST" }).catch(() => {});
 });
 
 // ---------- Tools: Traceroute ----------
@@ -421,6 +422,132 @@ startScanButton.addEventListener("click", () => {
     })
     .finally(() => {
         startScanButton.disabled = false;
+    });
+});
+
+// ---------- Tools: Batch Send / Stress Test ----------
+const startBatchButton = document.querySelector("#startBatch");
+const stopBatchButton = document.querySelector("#stopBatch");
+const batchCountInput = document.querySelector("#batchCount");
+const batchRateInput = document.querySelector("#batchRate");
+const statSentEl = document.querySelector("#statSent");
+const statRecvEl = document.querySelector("#statRecv");
+const statLossEl = document.querySelector("#statLoss");
+
+let batchRunning = false;
+let batchAbort = false;
+
+function updateBatchStats(sent, received) {
+    const loss = sent > 0 ? Math.round(((sent - received) / sent) * 100) : 0;
+    statSentEl.textContent = String(sent);
+    statRecvEl.textContent = String(received);
+    statLossEl.textContent = String(loss);
+}
+
+async function sendBatchPacket() {
+    const iface = document.getElementById("ifaceSelect").value;
+    if (!iface) {
+        throw new Error("Interface required");
+    }
+    const response = await fetch("http://localhost:5000/send", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            interface: iface,
+            packet: gatherForm()
+        })
+    });
+    return response.json();
+}
+
+async function runBatchSend() {
+    const count = parseInt(batchCountInput.value, 10);
+    const rate = parseFloat(batchRateInput.value);
+    if (!Number.isFinite(count) || count <= 0) {
+        return;
+    }
+    if (!Number.isFinite(rate) || rate <= 0) {
+        return;
+    }
+
+    batchRunning = true;
+    batchAbort = false;
+    startBatchButton.disabled = true;
+    stopBatchButton.disabled = false;
+    updateBatchStats(0, 0);
+
+    const intervalMs = Math.max(1, Math.round(1000 / rate));
+    let sent = 0;
+    let received = 0;
+
+    try {
+        for (let i = 0; i < count; i += 1) {
+            if (batchAbort) {
+                break;
+            }
+            sent += 1;
+            try {
+                const data = await sendBatchPacket();
+                if (data && data.status === "success") {
+                    if (data.response_summary) {
+                        received += 1;
+                        addSniffRow({ ts: Date.now(), obj: data.response_summary });
+                    }
+                }
+            } catch (err) {
+                console.error(err);
+            }
+            updateBatchStats(sent, received);
+            await new Promise((resolve) => setTimeout(resolve, intervalMs));
+        }
+    } finally {
+        batchRunning = false;
+        startBatchButton.disabled = false;
+        stopBatchButton.disabled = true;
+    }
+}
+
+startBatchButton.addEventListener("click", () => {
+    if (batchRunning) {
+        return;
+    }
+    runBatchSend();
+});
+
+stopBatchButton.addEventListener("click", () => {
+    if (!batchRunning) {
+        return;
+    }
+    batchAbort = true;
+    stopBatchButton.disabled = true;
+});
+
+// ---------- Sniffer: Export PCAP ----------
+const exportPcapButton = document.querySelector("#exportPcap");
+
+exportPcapButton.addEventListener("click", () => {
+    const folder = localStorage.getItem("nettools.downloadsPath");
+    if (!folder) {
+        return;
+    }
+    const filename = `packetcraft_${Date.now()}.pcap`;
+    exportPcapButton.disabled = true;
+    fetch("http://localhost:5000/export-pcap", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder, filename })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status !== "success") {
+            console.error(data.message || "Export failed.");
+        }
+    })
+    .catch(err => {
+        console.error(err);
+    })
+    .finally(() => {
+        exportPcapButton.disabled = false;
     });
 });
 

@@ -1,8 +1,9 @@
+import os
 import socket
 import time
 from flask import Flask, jsonify, request
 from scapy.all import (
-    conf, get_if_list, sendp, sniff, sr1, Ether, IP, IPv6, ARP, ICMP, UDP, TCP, Raw
+    conf, get_if_list, sendp, sniff, sr1, wrpcap, Ether, IP, IPv6, ARP, ICMP, UDP, TCP, Raw
 )
 from scapy.layers.inet6 import (
     ICMPv6EchoRequest, ICMPv6EchoReply,
@@ -12,6 +13,8 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
+
+packet_log = []
 
 def safe_int(val, default=None, base=10):
     if val is None or val == "":
@@ -216,6 +219,9 @@ def send_packet():
         sendp(packet, iface=iface, verbose=False)
 
         resp = sniff_response(packet, iface, timeout=3)
+        packet_log.append(packet)
+        if resp is not None:
+            packet_log.append(resp)
 
         return jsonify({
             "status": "success",
@@ -426,6 +432,34 @@ def port_scan_api():
         }), 200
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/export-pcap', methods=['POST'])
+def export_pcap_api():
+    try:
+        data = request.json or {}
+        folder = clean_str(data.get("folder"))
+        filename = clean_str(data.get("filename"))
+        if not folder:
+            return jsonify({"status": "error", "message": "folder required"}), 400
+        if not filename:
+            return jsonify({"status": "error", "message": "filename required"}), 400
+        if not packet_log:
+            return jsonify({"status": "error", "message": "no packets to export"}), 400
+
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, filename)
+        wrpcap(path, packet_log)
+
+        return jsonify({"status": "success", "path": path}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/clear-logs', methods=['POST'])
+def clear_logs_api():
+    packet_log.clear()
+    return jsonify({"status": "success"}), 200
 
 
 if __name__ == '__main__':
