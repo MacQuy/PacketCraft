@@ -1,6 +1,8 @@
+import socket
+import time
 from flask import Flask, jsonify, request
 from scapy.all import (
-    get_if_list, sendp, sniff, Ether, IP, IPv6, ARP, ICMP, UDP, TCP, Raw
+    conf, get_if_list, sendp, sniff, sr1, Ether, IP, IPv6, ARP, ICMP, UDP, TCP, Raw
 )
 from scapy.layers.inet6 import (
     ICMPv6EchoRequest, ICMPv6EchoReply,
@@ -273,6 +275,77 @@ def sniff_response(sent_packet, iface, timeout=3):
 
     pkts = sniff(iface=iface, timeout=timeout, lfilter=flt, count=1)
     return pkts[0] if pkts else None
+
+
+def traceroute_host(host, max_hops=30, timeout=1, iface=None):
+    target_ip = socket.gethostbyname(host)
+    hops = []
+    iface_to_use = iface or conf.iface
+
+    for ttl in range(1, max_hops + 1):
+        probe = IP(dst=target_ip, ttl=ttl) / ICMP()
+        start_time = time.time()
+        reply = sr1(probe, timeout=timeout, iface=iface_to_use, verbose=False)
+        rtt_ms = round((time.time() - start_time) * 1000, 2)
+
+        if reply is None:
+            hops.append({
+                "ttl": ttl,
+                "ip": "*",
+                "rtt_ms": None,
+                "status": "timeout"
+            })
+            continue
+
+        hop_ip = reply[IP].src if reply.haslayer(IP) else "*"
+        status = "reply"
+
+        if reply.haslayer(ICMP):
+            icmp = reply.getlayer(ICMP)
+            if icmp.type == 11:
+                status = "ttl_exceeded"
+            elif icmp.type == 0:
+                status = "reached"
+            elif icmp.type == 3:
+                status = "unreachable"
+            else:
+                status = f"icmp_{icmp.type}"
+
+        hops.append({
+            "ttl": ttl,
+            "ip": hop_ip,
+            "rtt_ms": rtt_ms,
+            "status": status
+        })
+
+        if hop_ip == target_ip or status == "reached":
+            break
+
+    return target_ip, hops
+
+
+@app.route('/traceroute', methods=['POST'])
+def traceroute_api():
+    try:
+        data = request.json or {}
+        host = clean_str(data.get("host"))
+        if not host:
+            return jsonify({"status": "error", "message": "host required"}), 400
+
+        max_hops = safe_int(data.get("max_hops"), 30)
+        timeout = safe_int(data.get("timeout"), 1)
+        iface = clean_str(data.get("interface"))
+
+        target_ip, hops = traceroute_host(host, max_hops=max_hops, timeout=timeout, iface=iface)
+
+        return jsonify({
+            "status": "success",
+            "target": host,
+            "target_ip": target_ip,
+            "hops": hops
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == '__main__':

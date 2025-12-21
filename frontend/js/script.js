@@ -314,4 +314,60 @@ document.querySelector("#clearSniff").addEventListener("click", () => {
     packetStore.received = [];
 });
 
+// ---------- Tools: Traceroute ----------
+const traceOutput = document.querySelector("#traceOut");
+
+function formatTraceroute(hops) {
+    const ttlWidth = Math.max(3, ...hops.map((hop) => String(hop.ttl).length));
+    const ipWidth = Math.max(2, ...hops.map((hop) => String(hop.ip || "").length));
+    const rttValues = hops.map((hop) => (hop.rtt_ms === null ? "--" : `${hop.rtt_ms} ms`));
+    const rttWidth = Math.max(3, ...rttValues.map((val) => val.length));
+
+    const rows = hops.map((hop, idx) => {
+        const ttl = String(hop.ttl).padEnd(ttlWidth, " ");
+        const ip = String(hop.ip || "").padEnd(ipWidth, " ");
+        const rtt = rttValues[idx].padEnd(rttWidth, " ");
+        const status = String(hop.status || "");
+        return `${ttl}  ${ip}  ${rtt}  ${status}`;
+    });
+
+    const header = [
+        "TTL".padEnd(ttlWidth, " "),
+        "IP".padEnd(ipWidth, " "),
+        "RTT".padEnd(rttWidth, " "),
+        "Status"
+    ].join("  ");
+
+    return `${header}\n${rows.join("\n")}`;
+}
+
+document.querySelector("#startTrace").addEventListener("click", () => {
+    const host = document.querySelector("#trHost").value.trim();
+    if (!host) {
+        traceOutput.textContent = "Please enter a host.";
+        return;
+    }
+
+    traceOutput.textContent = `Tracing route to ${host}...\n`;
+
+    fetch("http://localhost:5000/traceroute", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ host })
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.status !== "success") {
+            traceOutput.textContent = `Error: ${data.message || "Traceroute failed."}`;
+            return;
+        }
+
+        const header = `Target: ${data.target} (${data.target_ip})\n`;
+        traceOutput.textContent = header + formatTraceroute(data.hops);
+    })
+    .catch(err => {
+        traceOutput.textContent = `Error: ${err.message || "Traceroute failed."}`;
+    });
+});
+
 renderTemplates(Template.builtinTemplates)
