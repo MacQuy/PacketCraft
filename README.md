@@ -48,13 +48,9 @@ project/
 
 ### 1. Cài đặt Python & Flask / Scrapy
 - Cài đặt Python (phiên bản 3.8+).
-- Mở terminal và cài đặt Flask (nếu dùng Flask):
+- Mở terminal và cài đặt các thư viện Python cần thiết:
 ```bash
-pip install flask
-```
-- Hoặc cài Scrapy (nếu dùng Scrapy cho backend):
-```bash
-pip install scrapy
+pip install flask flask-cors scapy
 ```
 
 ### 2. Cài đặt Node.js & ElectronJS

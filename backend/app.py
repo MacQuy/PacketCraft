@@ -1,6 +1,9 @@
+import os
+import socket
+import time
 from flask import Flask, jsonify, request
 from scapy.all import (
-    get_if_list, sendp, sniff, Ether, IP, IPv6, ARP, ICMP, UDP, TCP, Raw
+    conf, get_if_list, sendp, sniff, sr1, wrpcap, Ether, IP, IPv6, ARP, ICMP, UDP, TCP, Raw
 )
 from scapy.layers.inet6 import (
     ICMPv6EchoRequest, ICMPv6EchoReply,
@@ -10,6 +13,8 @@ from flask_cors import CORS
 
 app = Flask(__name__)
 CORS(app)
+
+packet_log = []
 
 def safe_int(val, default=None, base=10):
     if val is None or val == "":
@@ -214,6 +219,9 @@ def send_packet():
         sendp(packet, iface=iface, verbose=False)
 
         resp = sniff_response(packet, iface, timeout=3)
+        packet_log.append(packet)
+        if resp is not None:
+            packet_log.append(resp)
 
         return jsonify({
             "status": "success",
@@ -273,6 +281,185 @@ def sniff_response(sent_packet, iface, timeout=3):
 
     pkts = sniff(iface=iface, timeout=timeout, lfilter=flt, count=1)
     return pkts[0] if pkts else None
+
+
+def traceroute_host(host, max_hops=30, timeout=1, iface=None):
+    target_ip = socket.gethostbyname(host)
+    hops = []
+    iface_to_use = iface or conf.iface
+
+    for ttl in range(1, max_hops + 1):
+        probe = IP(dst=target_ip, ttl=ttl) / ICMP()
+        start_time = time.time()
+        reply = sr1(probe, timeout=timeout, iface=iface_to_use, verbose=False)
+        rtt_ms = round((time.time() - start_time) * 1000, 2)
+
+        if reply is None:
+            hops.append({
+                "ttl": ttl,
+                "ip": "*",
+                "rtt_ms": None,
+                "status": "timeout"
+            })
+            continue
+
+        hop_ip = reply[IP].src if reply.haslayer(IP) else "*"
+        status = "reply"
+
+        if reply.haslayer(ICMP):
+            icmp = reply.getlayer(ICMP)
+            if icmp.type == 11:
+                status = "ttl_exceeded"
+            elif icmp.type == 0:
+                status = "reached"
+            elif icmp.type == 3:
+                status = "unreachable"
+            else:
+                status = f"icmp_{icmp.type}"
+
+        hops.append({
+            "ttl": ttl,
+            "ip": hop_ip,
+            "rtt_ms": rtt_ms,
+            "status": status
+        })
+
+        if hop_ip == target_ip or status == "reached":
+            break
+
+    return target_ip, hops
+
+
+def parse_ports(port_spec):
+    ports = set()
+    if not port_spec:
+        return []
+
+    for chunk in str(port_spec).split(","):
+        part = chunk.strip()
+        if not part:
+            continue
+        if "-" in part:
+            start_s, end_s = part.split("-", 1)
+            start = safe_int(start_s, None)
+            end = safe_int(end_s, None)
+            if start is None or end is None:
+                continue
+            if start > end:
+                start, end = end, start
+            for p in range(start, end + 1):
+                if 1 <= p <= 65535:
+                    ports.add(p)
+        else:
+            p = safe_int(part, None)
+            if p is not None and 1 <= p <= 65535:
+                ports.add(p)
+
+    return sorted(ports)
+
+
+def scan_port(target_ip, port, timeout=1, iface=None):
+    iface_to_use = iface or conf.iface
+    syn = IP(dst=target_ip) / TCP(dport=port, flags="S")
+    resp = sr1(syn, timeout=timeout, iface=iface_to_use, verbose=False)
+    if resp is None:
+        return "filtered"
+    if resp.haslayer(TCP):
+        flags = resp.getlayer(TCP).flags
+        if flags == 0x12:
+            sr1(IP(dst=target_ip) / TCP(dport=port, flags="R"), timeout=timeout, iface=iface_to_use, verbose=False)
+            return "open"
+        if flags == 0x14:
+            return "closed"
+    if resp.haslayer(ICMP):
+        return "filtered"
+    return "unknown"
+
+
+@app.route('/traceroute', methods=['POST'])
+def traceroute_api():
+    try:
+        data = request.json or {}
+        host = clean_str(data.get("host"))
+        if not host:
+            return jsonify({"status": "error", "message": "host required"}), 400
+
+        max_hops = safe_int(data.get("max_hops"), 30)
+        timeout = safe_int(data.get("timeout"), 1)
+        iface = clean_str(data.get("interface"))
+
+        target_ip, hops = traceroute_host(host, max_hops=max_hops, timeout=timeout, iface=iface)
+
+        return jsonify({
+            "status": "success",
+            "target": host,
+            "target_ip": target_ip,
+            "hops": hops
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/port-scan', methods=['POST'])
+def port_scan_api():
+    try:
+        data = request.json or {}
+        host = clean_str(data.get("host"))
+        ports_spec = clean_str(data.get("ports"))
+        if not host:
+            return jsonify({"status": "error", "message": "host required"}), 400
+        if not ports_spec:
+            return jsonify({"status": "error", "message": "ports required"}), 400
+
+        target_ip = socket.gethostbyname(host)
+        ports = parse_ports(ports_spec)
+        if not ports:
+            return jsonify({"status": "error", "message": "no valid ports"}), 400
+
+        timeout = safe_int(data.get("timeout"), 1)
+        iface = clean_str(data.get("interface"))
+
+        results = []
+        for port in ports:
+            state = scan_port(target_ip, port, timeout=timeout, iface=iface)
+            results.append({"port": port, "state": state})
+
+        return jsonify({
+            "status": "success",
+            "target": host,
+            "target_ip": target_ip,
+            "results": results
+        }), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/export-pcap', methods=['POST'])
+def export_pcap_api():
+    try:
+        data = request.json or {}
+        folder = clean_str(data.get("folder"))
+        filename = clean_str(data.get("filename"))
+        if not folder:
+            return jsonify({"status": "error", "message": "folder required"}), 400
+        if not filename:
+            return jsonify({"status": "error", "message": "filename required"}), 400
+        if not packet_log:
+            return jsonify({"status": "error", "message": "no packets to export"}), 400
+
+        os.makedirs(folder, exist_ok=True)
+        path = os.path.join(folder, filename)
+        wrpcap(path, packet_log)
+
+        return jsonify({"status": "success", "path": path}), 200
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+
+@app.route('/clear-logs', methods=['POST'])
+def clear_logs_api():
+    packet_log.clear()
+    return jsonify({"status": "success"}), 200
 
 
 if __name__ == '__main__':
