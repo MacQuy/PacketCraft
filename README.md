@@ -75,3 +75,6 @@ npm start
 ```
 
 Ứng dụng sẽ kết nối giữa **Python backend** và **ElectronJS frontend**.
+
+## Demo
+Link demo: https://youtu.be/GsEWmHIyE40
